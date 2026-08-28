@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gitget · GitHub explorer</title>
+<style>
+  :root{
+    --bg: #0D1117;
+    --surface: #131920;
+    --surface-2: #161B22;
+    --border: #2B3542;
+    --text: #E6EDF3;
+    --muted: #8B949E;
+    --green: #3FB950;
+    --blue: #58A6FF;
+    --amber: #D29922;
+    --purple: #BC8CFF;
+    --mono: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+    --sans: -apple-system, 'Inter', 'Segoe UI', system-ui, sans-serif;
+    --radius: 8px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    background: transparent;
+    color: var(--text);
+    font-family: var(--sans);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  .app {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .brand {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .brand .prompt { color: var(--green); margin-right: 6px; }
+  .tagline {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .search-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .search-box {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    font-family: var(--mono);
+    transition: border-color 0.15s ease;
+  }
+  .search-box:focus-within {
+    border-color: var(--blue);
+  }
+  .search-glyph { color: var(--muted); font-size: 15px; }
+
+  .search-box input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    min-width: 0;
+  }
+  .search-box input::placeholder { color: #5C6672; }
+
+  button {
+    font-family: var(--mono);
+    cursor: pointer;
+  }
+
+  #searchBtn {
+    background: var(--green);
+    color: #05170A;
+    border: none;
+    border-radius: var(--radius);
+    padding: 0 18px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  #searchBtn:hover { filter: brightness(1.08); }
+  #searchBtn:active { transform: translateY(1px); }
+  #searchBtn:focus-visible, .search-box input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .mode-toggle {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .mode-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 7px 14px;
+  }
+  .mode-btn.active {
+    background: var(--surface-2);
+    color: var(--text);
+    box-shadow: inset 0 -2px 0 var(--blue);
+  }
+  .mode-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+
+  select#sortSelect {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 8px;
+  }
+
+  .adv-toggle {
+    margin-left: auto;
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    border-radius: var(--radius);
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+  .adv-toggle:hover { color: var(--text); border-color: var(--muted); }
+
+  .adv-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 14px;
+    font-size: 12px;
+  }
+  .adv-panel label { display:block; margin-bottom: 6px; color: var(--muted); }
+  .adv-panel .muted { color: #5C6672; }
+  .adv-panel input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 8px 10px;
+    outline: none;
+  }
+  .adv-panel input:focus-visible { border-color: var(--blue); }
+  .hidden { display: none !important; }
+
+  .status {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    min-height: 18px;
+    margin: 6px 2px 12px;
+  }
+  .status.error { color: #F85149; }
+
+  .empty-state {
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 22px 18px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .empty-state .chips {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+  .chip {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--blue);
+    font-family: var(--mono);
+    font-size: 11px;
+    border-radius: 20px;
+    padding: 5px 12px;
+  }
+  .chip:hover { border-color: var(--blue); }
+
+  .results {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    animation: rise 0.25s ease both;
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .chrome {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-a { background: var(--green); }
+  .dot-b { background: var(--amber); }
+  .dot-c { background: var(--blue); }
+  .urlbar {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--bg);
+    border-radius: 4px;
+    padding: 3px 8px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-body { padding: 12px 14px 14px; }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .avatar {
+    width: 22px; height: 22px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .lang-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .card-head h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .card-head h3 a { color: var(--text); text-decoration: none; }
+  .card-head h3 a:hover { color: var(--blue); }
+  .stat {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--amber);
+    flex-shrink: 0;
+  }
+
+  .desc {
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: #C9D1D9;
+    line-height: 1.45;
+  }
+
+  .meta-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .peek-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--purple);
+    font-size: 11px;
+    border-radius: 6px;
+    padding: 5px 10px;
+  }
+  .peek-btn:hover { border-color: var(--purple); }
+  .peek-btn:focus-visible { outline: 2px solid var(--blue); }
+
+  .peek-panel {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+    font-size: 12.5px;
+    color: #C9D1D9;
+    line-height: 1.55;
+  }
+  .peek-panel .peek-loading { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+  .peek-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .peek-grid b { color: var(--text); }
+  .open-link {
+    display: inline-block;
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--blue);
+    text-decoration: none;
+  }
+  .open-link:hover { text-decoration: underline; }
+  .readme-excerpt {
+    white-space: pre-wrap;
+    font-size: 12px;
+    color: #A8B3BD;
+    max-height: 180px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  footer.note {
+    margin-top: 24px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: #4A535E;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><span class="prompt">$</span>gitget</div>
+    <span class="tagline">— search GitHub, peek before you click</span>
+  </div>
+
+  <div class="search-row">
+    <div class="search-box">
+      <span class="search-glyph">⌕</span>
+      <input id="query" type="text" placeholder="search repositories or people…" autocomplete="off" />
+    </div>
+    <button id="searchBtn">run</button>
+  </div>
+
+  <div class="controls">
+    <div class="mode-toggle" role="tablist">
+      <button class="mode-btn active" data-mode="repositories" role="tab" aria-selected="true">repos</button>
+      <button class="mode-btn" data-mode="users" role="tab" aria-selected="false">people</button>
+    </div>
+    <select id="sortSelect" aria-label="sort order">
+      <option value="best">best match</option>
+      <option value="stars">most stars</option>
+      <option value="updated">recently updated</option>
+    </select>
+    <button class="adv-toggle" id="advToggle">token ▾</button>
+  </div>
+
+  <div class="adv-panel hidden" id="advPanel">
+    <label for="tokenInput">personal access token <span class="muted">— optional, raises the rate limit from 10/min to 30/min, kept only in this tab's memory, never saved or sent anywhere but api.github.com</span></label>
+    <input id="tokenInput" type="password" placeholder="ghp_…" autocomplete="off" />
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div id="results">
+    <div class="empty-state" id="emptyState">
+      type something above and hit run — or try one of these
+      <div class="chips">
+        <button class="chip" data-mode="repositories" data-q="torvalds/linux">torvalds/linux</button>
+        <button class="chip" data-mode="repositories" data-q="language:rust stars:&gt;5000">rust, 5k+ stars</button>
+        <button class="chip" data-mode="repositories" data-q="topic:cli topic:python">python cli tools</button>
+        <button class="chip" data-mode="users" data-q="location:glasgow">people in glasgow</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="note">unauthenticated requests are rate-limited by GitHub — add a token above if you hit the ceiling</footer>
+</div>
+
+<script>
+(function(){
+  const els = {
+    query: document.getElementById('query'),
+    searchBtn: document.getElementById('searchBtn'),
+    status: document.getElementById('status'),
+    results: document.getElementById('results'),
+    emptyState: document.getElementById('emptyState'),
+    advToggle: document.getElementById('advToggle'),
+    advPanel: document.getElementById('advPanel'),
+    tokenInput: document.getElementById('tokenInput'),
+    sortSelect: document.getElementById('sortSelect'),
+    modeBtns: document.querySelectorAll('.mode-btn'),
+  };
+
+  let mode = 'repositories';
+
+  const LANG_COLORS = {
+    Python:'#3572A5', JavaScript:'#f1e05a', TypeScript:'#3178c6', Go:'#00ADD8',
+    Rust:'#dea584', Java:'#b07219', 'C++':'#f34b7d', C:'#555555', Ruby:'#701516',
+    PHP:'#4F5D95', Shell:'#89e051', HTML:'#e34c26', CSS:'#563d7c', 'C#':'#178600',
+    Swift:'#F05138', Kotlin:'#A97BFF', Vue:'#41b883', Dart:'#00B4AB'
+  };
+
+  function langColor(lang){ return LANG_COLORS[lang] || '#8B949E'; }
+
+  function relativeTime(iso){
+    if(!iso) return 'unknown';
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const days = Math.floor(diffMs / 86400000);
+    if(days < 1) return 'today';
+    if(days === 1) return '1d ago';
+    if(days < 30) return days + 'd ago';
+    const months = Math.floor(days/30);
+    if(months < 12) return months + 'mo ago';
+    return Math.floor(months/12) + 'y ago';
+  }
+
+  function escapeHtml(str){
+    return (str || '').replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  function authHeaders(){
+    const h = { 'Accept': 'application/vnd.github+json' };
+    const tok = els.tokenInput.value.trim();
+    if(tok) h['Authorization'] = 'token ' + tok;
+    return h;
+  }
+
+  els.advToggle.addEventListener('click', () => {
+    els.advPanel.classList.toggle('hidden');
+  });
+
+  els.modeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      mode = btn.dataset.mode;
+      els.modeBtns.forEach(b => {
+        b.classList.toggle('active', b === btn);
+        b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+      });
+      const sortWrap = els.sortSelect;
+      sortWrap.style.visibility = mode === 'users' ? 'hidden' : 'visible';
+    });
+  });
+
+  els.results.addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if(chip){
+      const targetMode = chip.dataset.mode;
+      els.modeBtns.forEach(b => {
+        const match = b.dataset.mode === targetMode;
+        b.classList.toggle('active', match);
+        b.setAttribute('aria-selected', match ? 'true':'false');
+      });
+      mode = targetMode;
+      els.query.value = chip.dataset.q;
+      runSearch();
+    }
+  });
+
+  els.searchBtn.addEventListener('click', runSearch);
+  els.query.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') runSearch();
+  });
+
+  function setStatus(msg, isError){
+    els.status.textContent = msg || '';
+    els.status.classList.toggle('error', !!isError);
+  }
+
+  async function runSearch(){
+    const q = els.query.value.trim();
+    if(!q){ setStatus('type a search term first'); return; }
+
+    setStatus('searching…');
+    els.results.innerHTML = '';
+
+    const sort = els.sortSelect.value;
+    let url;
+    if(mode === 'repositories'){
+      const sortParam = sort === 'stars' ? '&sort=stars&order=desc'
+        : sort === 'updated' ? '&sort=updated&order=desc' : '';
+      url = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}${sortParam}&per_page=15`;
+    } else {
+      url = `https://api.github.com/search/users?q=${encodeURIComponent(q)}&per_page=15`;
+    }
+
+    try{
+      const res = await fetch(url, { headers: authHeaders() });
+      const remaining = res.headers.get('X-RateLimit-Remaining');
+
+      if(!res.ok){
+        if(res.status === 403 && remaining === '0'){
+          const reset = res.headers.get('X-RateLimit-Reset');
+          const resetTime = reset ? new Date(parseInt(reset,10)*1000).toLocaleTimeString() : 'soon';
+          setStatus(`rate limit hit — resets around ${resetTime}. add a token above to raise the ceiling.`, true);
+        } else if(res.status === 422){
+          setStatus('GitHub couldn\'t parse that query — try simplifying it', true);
+        } else {
+          setStatus(`GitHub API error (${res.status})`, true);
+        }
+        return;
+      }
+
+      const data = await res.json();
+      const items = data.items || [];
+
+      if(items.length === 0){
+        setStatus('no results');
+        els.results.innerHTML = '<div class="empty-state">nothing matched that search — try broadening it</div>';
+        return;
+      }
+
+      setStatus(`${data.total_count.toLocaleString()} total matches — showing top ${items.length}${remaining ? ' · ' + remaining + ' requests left this window' : ''}`);
+      els.results.innerHTML = items.map(item => mode === 'repositories' ? repoCard(item) : userCard(item)).join('');
+
+    } catch(err){
+      setStatus('network error reaching api.github.com — check your connection', true);
+    }
+  }
+
+  function repoCard(repo){
+    const lang = repo.language;
+    return `
+    <article class="card">
+      <div class="chrome">
+        <span class="dot dot-a"></span><span class="dot dot-b"></span><span class="dot dot-c"></span>
+        <span class="urlbar">github.com/${escapeHtml(repo.full_name)}</span>
+      </div>
+      <div class="card-body">
+        <div class="card-head">
+          <img class="avatar" src="${repo.owner.avatar_url}&s=44" alt="" loading="lazy" />
+          <span class="lang-dot" style="background:${langColor(lang)}"></span>
+          <h3><a href="${repo.html_url}" target="_blank" rel="noopener">${escapeHtml(repo.name)}</a></h3>
+          <span class="stat">★ ${repo.stargazers_count.toLocaleString()}</span>
+        </div>
+        <p class="desc">${escapeHtml(repo.description) || 'no description provided'}</p>
+        <div class="meta-row">
+          <span>${lang || 'unlabelled'}</span>
+          <span>⑂ ${repo.forks_count.toLocaleString()}</span>
+          <span>updated ${relativeTime(repo.updated_at)}</span>
+          ${repo.archived ? '<span>archived</span>' : ''}
+        </div>
+        <button class="peek-btn" data-kind="repo" data-full="${escapeHtml(repo.full_name)}" data-url="${repo.html_url}">peek ▾</button>
+        <div class="peek-panel hidden"></div>
+      </div>
+    </article>`;
+  }
+
+  function userCard(user){
+    return `
+    <article class="card">
+      <div class="chrome">
+        <span class="dot dot-a"></span><span class="dot dot-b"></span><span class="dot dot-c"></span>
+        <span class="urlbar">github.com/${escapeHtml(user.login)}</span>
+      </div>
+      <div class="card-body">
+        <div class="card-head">
+          <img class="avatar" src="${user.avatar_url}&s=44" alt="" loading="lazy" />
+          <h3><a href="${user.html_url}" target="_blank" rel="noopener">${escapeHtml(user.login)}</a></h3>
+          <span class="stat">${escapeHtml(user.type)}</span>
+        </div>
+        <div class="meta-row">
+          <span>score ${user.score ? user.score.toFixed(1) : '—'}</span>
+        </div>
+        <button class="peek-btn" data-kind="user" data-full="${escapeHtml(user.login)}" data-url="${user.html_url}">peek ▾</button>
+        <div class="peek-panel hidden"></div>
+      </div>
+    </article>`;
+  }
+
+  els.results.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.peek-btn');
+    if(!btn) return;
+
+    const panel = btn.nextElementSibling;
+    const isHidden = panel.classList.contains('hidden');
+
+    if(!isHidden){
+      panel.classList.add('hidden');
+      btn.textContent = 'peek ▾';
+      return;
+    }
+
+    panel.classList.remove('hidden');
+    btn.textContent = 'close ▴';
+
+    if(panel.dataset.loaded === 'true') return;
+    panel.innerHTML = '<div class="peek-loading">loading preview…</div>';
+
+    const kind = btn.dataset.kind;
+    const full = btn.dataset.full;
+    const url = btn.dataset.url;
+
+    try{
+      if(kind === 'repo'){
+        const res = await fetch(`https://api.github.com/repos/${full}/readme`, {
+          headers: { ...authHeaders(), 'Accept': 'application/vnd.github.raw+json' }
+        });
+        let excerpt = 'no README found for this repository.';
+        if(res.ok){
+          const text = await res.text();
+          excerpt = text
+            .replace(/!\[.*?\]\(.*?\)/g, '')
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+            .replace(/[#*_`>]/g, '')
+            .trim()
+            .slice(0, 600);
+          if(text.length > 600) excerpt += '…';
+        }
+        panel.innerHTML = `
+          <div class="readme-excerpt">${escapeHtml(excerpt)}</div>
+          <a class="open-link" href="${url}" target="_blank" rel="noopener">open full page on github.com ↗</a>
+        `;
+      } else {
+        const res = await fetch(`https://api.github.com/users/${full}`, { headers: authHeaders() });
+        if(!res.ok){
+          panel.innerHTML = `<div class="peek-loading">couldn't load profile details.</div>`;
+        } else {
+          const u = await res.json();
+          panel.innerHTML = `
+            <p style="margin:0 0 8px;">${escapeHtml(u.bio) || 'no bio set'}</p>
+            <div class="peek-grid">
+              <div><b>${u.public_repos}</b> repos</div>
+              <div><b>${u.followers}</b> followers</div>
+              <div><b>${u.following}</b> following</div>
+              <div><b>${u.company ? escapeHtml(u.company) : '—'}</b> company</div>
+              <div><b>${u.location ? escapeHtml(u.location) : '—'}</b> location</div>
+              <div><b>${u.blog ? escapeHtml(u.blog) : '—'}</b> site</div>
+            </div>
+            <a class="open-link" href="${url}" target="_blank" rel="noopener">open full profile on github.com ↗</a>
+          `;
+        }
+      }
+      panel.dataset.loaded = 'true';
+    } catch(err){
+      panel.innerHTML = '<div class="peek-loading">network error loading preview.</div>';
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
